@@ -1,0 +1,67 @@
+table 'ZIP activity'
+	lineageTag: 70a92044-70d2-5847-264b-63dd813b07d1
+
+	measure 'Requests by ZIP' = SUM('ZIP activity'[requests])
+		formatString: #,0
+		lineageTag: 6115fcc7-62dc-7741-cae7-cc6e3fff1746
+
+	measure '% of city requests' = DIVIDE([Requests by ZIP], CALCULATE([Requests by ZIP], REMOVEFILTERS(Location), REMOVEFILTERS(Borough)))
+		formatString: 0.00%
+		lineageTag: a46963ea-b800-d60d-b20a-8f05817e37aa
+
+	column month_date
+		dataType: dateTime
+		isHidden
+		formatString: yyyy-mm-dd
+		lineageTag: a0b4246a-27d3-8ca7-7d12-248154da72ae
+		summarizeBy: none
+		sourceColumn: month_date
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column location_key
+		dataType: int64
+		isHidden
+		formatString: 0
+		lineageTag: 59d28a58-d7b3-7f52-bc0d-e58a5b1e4f20
+		summarizeBy: none
+		sourceColumn: location_key
+
+		annotation SummarizationSetBy = Automatic
+
+	column borough
+		dataType: string
+		isHidden
+		lineageTag: 27c64972-8906-326e-a4a6-eabdd70aa417
+		summarizeBy: none
+		sourceColumn: borough
+
+		annotation SummarizationSetBy = Automatic
+
+	column requests
+		dataType: int64
+		isHidden
+		formatString: 0
+		lineageTag: 05148635-6137-b1b9-675d-c3d7955c2cd3
+		summarizeBy: none
+		sourceColumn: requests
+
+		annotation SummarizationSetBy = Automatic
+
+	partition 'ZIP activity' = m
+		mode: import
+		source =
+				let
+				    Archivo = "fact_zip.csv",
+				    Binario = if Text.StartsWith(DataPath, "http")
+				        then Web.Contents(DataPath, [RelativePath = Archivo])
+				        else File.Contents(DataPath & Archivo),
+				    Fuente = Csv.Document(Binario, [Delimiter = ",", Encoding = 65001, QuoteStyle = QuoteStyle.Csv]),
+				    Encabezados = Table.PromoteHeaders(Fuente, [PromoteAllScalars = true]),
+				    Tipos = Table.TransformColumnTypes(Encabezados, {{"month_date", type date}, {"location_key", Int64.Type}, {"borough", type text}, {"requests", Int64.Type}}, "en-US")
+				in
+				    Tipos
+
+	annotation PBI_ResultType = Table

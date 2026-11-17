@@ -1,0 +1,45 @@
+table Location
+	lineageTag: 941cdc19-a9a6-fbf9-f191-aeea80bee251
+
+	column location_key
+		dataType: int64
+		isHidden
+		formatString: 0
+		lineageTag: bd22f4e7-07dc-26a1-0e10-b6a8d0f3e298
+		summarizeBy: none
+		sourceColumn: location_key
+
+		annotation SummarizationSetBy = Automatic
+
+	column borough
+		dataType: string
+		isHidden
+		lineageTag: cdb1156b-01bc-b873-ca18-ac0b76fcfa38
+		summarizeBy: none
+		sourceColumn: borough
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'ZIP code'
+		dataType: string
+		lineageTag: b13351a5-54f5-369d-9165-9dfac45f7c86
+		summarizeBy: none
+		sourceColumn: zip
+
+		annotation SummarizationSetBy = Automatic
+
+	partition Location = m
+		mode: import
+		source =
+				let
+				    Archivo = "dim_location.csv",
+				    Binario = if Text.StartsWith(DataPath, "http")
+				        then Web.Contents(DataPath, [RelativePath = Archivo])
+				        else File.Contents(DataPath & Archivo),
+				    Fuente = Csv.Document(Binario, [Delimiter = ",", Encoding = 65001, QuoteStyle = QuoteStyle.Csv]),
+				    Encabezados = Table.PromoteHeaders(Fuente, [PromoteAllScalars = true]),
+				    Tipos = Table.TransformColumnTypes(Encabezados, {{"location_key", Int64.Type}, {"borough", type text}, {"zip", type text}}, "en-US")
+				in
+				    Tipos
+
+	annotation PBI_ResultType = Table

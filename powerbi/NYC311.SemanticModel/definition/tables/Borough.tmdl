@@ -1,0 +1,26 @@
+table Borough
+	lineageTag: 1b3e5838-468a-eab3-c337-bb19ace450b0
+
+	column Borough
+		dataType: string
+		lineageTag: b4af26b3-7ce9-7456-fb11-4dc2d4cabd43
+		summarizeBy: none
+		sourceColumn: borough
+
+		annotation SummarizationSetBy = Automatic
+
+	partition Borough = m
+		mode: import
+		source =
+				let
+				    Archivo = "dim_borough.csv",
+				    Binario = if Text.StartsWith(DataPath, "http")
+				        then Web.Contents(DataPath, [RelativePath = Archivo])
+				        else File.Contents(DataPath & Archivo),
+				    Fuente = Csv.Document(Binario, [Delimiter = ",", Encoding = 65001, QuoteStyle = QuoteStyle.Csv]),
+				    Encabezados = Table.PromoteHeaders(Fuente, [PromoteAllScalars = true]),
+				    Tipos = Table.TransformColumnTypes(Encabezados, {{"borough", type text}}, "en-US")
+				in
+				    Tipos
+
+	annotation PBI_ResultType = Table

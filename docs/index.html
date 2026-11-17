@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NYC 311 · SQL analytics — Jorge Valencia</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%226%22 fill=%22%231d1e20%22/%3E%3Cpath d=%22M8 22h4V14H8zm6 0h4V8h-4zm6 0h4V17h-4z%22 fill=%22%2300918b%22/%3E%3C/svg%3E">
+<meta name="description" content="Data analytics demo: 3.4 million NYC 311 service requests from 2024, modelled in PostgreSQL and analysed with SQL.">
+<style>
+  :root {
+    color-scheme: light;
+    --surface-0: #f3f0e8;
+    --surface-1: #faf8f3;
+    --line:      #e2ddd1;
+    --text-1:    #1d1e20;
+    --text-2:    #55524c;
+    --text-3:    #858077;
+    --series-1:  #00918b;
+    --series-2:  #b8632c;
+    --series-3:  #6a5bb0;
+    --series-4:  #8a857a;
+    --wash-1:    rgba(0,145,139,.10);
+    --seq-0:#e6f3f1; --seq-1:#bfe2de; --seq-2:#8ccbc5; --seq-3:#4faea7; --seq-4:#12908a; --seq-5:#0b6b66;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      color-scheme: dark;
+      --surface-0: #141516;
+      --surface-1: #1b1c1e;
+      --line:      #2e3033;
+      --text-1:    #f1eee6;
+      --text-2:    #bdb8ad;
+      --text-3:    #8b877e;
+      --series-1:  #16a39a;
+      --series-2:  #cc7a40;
+      --series-3:  #9d8fe0;
+      --series-4:  #9a958a;
+      --wash-1:    rgba(22,163,154,.12);
+      --seq-0:#22302f; --seq-1:#1f4744; --seq-2:#1d625d; --seq-3:#1a7f78; --seq-4:#22a59c; --seq-5:#6fd0c8;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0; background: var(--surface-0); color: var(--text-1);
+    font: 15px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 0 20px; }
+  a { color: inherit; text-decoration-color: var(--series-1); text-underline-offset: 3px; }
+
+  header.top { padding: 56px 0 28px; border-bottom: 1px solid var(--line); }
+  .eyebrow { font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--text-3); margin: 0 0 14px; }
+  h1 {
+    font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    font-weight: 500; font-size: clamp(30px, 5vw, 50px); line-height: 1.08; letter-spacing: -.01em;
+    margin: 0 0 16px; max-width: 24ch;
+  }
+  h1 em { font-style: italic; color: var(--series-1); }
+  .lede { max-width: 62ch; color: var(--text-2); font-size: 17px; margin: 0 0 22px; }
+  .byline { display: flex; flex-wrap: wrap; gap: 8px 22px; font-size: 13px; color: var(--text-3); }
+  .byline strong { color: var(--text-1); font-weight: 600; }
+
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1px;
+          background: var(--line); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; margin: 32px 0 8px; }
+  .kpi { background: var(--surface-1); padding: 16px 18px; }
+  .kpi span { display: block; font-size: 12px; color: var(--text-3); }
+  .kpi b { display: block; font-size: 26px; font-weight: 600; letter-spacing: -.01em; margin-top: 2px; font-variant-numeric: tabular-nums; }
+  .kpi small { color: var(--text-2); font-size: 12px; }
+
+  section.block { padding: 44px 0 8px; }
+  h2 { font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif; font-weight: 500;
+       font-size: 26px; margin: 0 0 4px; }
+  .block > .wrap > p.sub { color: var(--text-2); margin: 0 0 20px; max-width: 70ch; }
+
+  .colstack { grid-column: span 12; display: grid; gap: 16px; align-content: start; min-width: 0; }
+  .grid { display: grid; gap: 16px; grid-template-columns: repeat(12, 1fr); }
+  .card { grid-column: span 12; background: var(--surface-1); border: 1px solid var(--line);
+          border-radius: 10px; padding: 20px 20px 14px; min-width: 0; }
+  @media (min-width: 860px) { .span-6 { grid-column: span 6; } .span-7 { grid-column: span 7; } .span-5 { grid-column: span 5; } }
+  .card h3 { font-size: 16px; font-weight: 600; margin: 0 0 2px; line-height: 1.35; }
+  .card .desc { font-size: 13px; color: var(--text-2); margin: 0 0 12px; }
+  .chart { position: relative; width: 100%; }
+  .chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 12px; color: var(--text-2); margin: 0 0 8px; }
+  .legend i { display: inline-block; vertical-align: middle; margin-right: 6px; }
+  .legend i.rect { width: 10px; height: 10px; border-radius: 2px; }
+  .legend i.ln { width: 16px; height: 2px; border-radius: 1px; }
+  .legend i.ln.dash { background: repeating-linear-gradient(90deg, currentColor 0 4px, transparent 4px 7px) !important; }
+
+  .card footer { display: flex; justify-content: space-between; gap: 12px; align-items: baseline;
+                 border-top: 1px solid var(--line); margin-top: 12px; padding-top: 10px; font-size: 12px; color: var(--text-3); }
+  details summary { cursor: pointer; color: var(--text-2); }
+  details[open] summary { margin-bottom: 8px; }
+  .tbl { max-height: 300px; overflow: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 12px; font-variant-numeric: tabular-nums; }
+  th, td { padding: 4px 8px; border-bottom: 1px solid var(--line); text-align: left; white-space: nowrap; }
+  th { color: var(--text-3); font-weight: 500; position: sticky; top: 0; background: var(--surface-1); }
+  td.n, th.n { text-align: right; }
+  .wrapcells td { white-space: normal; }
+  .wrapcells td.n, .wrapcells th.n { white-space: nowrap; }
+
+  svg text { fill: var(--text-2); font-size: 11px; }
+  svg .axis text { fill: var(--text-3); }
+  svg .grid line { stroke: var(--line); stroke-width: 1; shape-rendering: crispEdges; }
+  svg .lbl { fill: var(--text-1); font-weight: 600; }
+  svg .val { paint-order: stroke; stroke: var(--surface-1); stroke-width: 3px; stroke-linejoin: round; }
+  .hit { fill: transparent; cursor: default; }
+  .mark { transition: opacity .12s; }
+  .chart.hovering .mark:not(.on) { opacity: .45; }
+  .hit:focus { outline: none; }
+  .hit:focus-visible + .mark, .mark.on { opacity: 1; }
+
+  #tip { position: fixed; pointer-events: none; z-index: 10; min-width: 120px; max-width: 280px;
+         background: var(--surface-1); color: var(--text-1); border: 1px solid var(--line);
+         box-shadow: 0 6px 24px rgba(0,0,0,.12); border-radius: 8px; padding: 8px 10px; font-size: 12px;
+         opacity: 0; transform: translateY(4px); transition: opacity .1s, transform .1s; }
+  #tip.show { opacity: 1; transform: none; }
+  #tip .t { color: var(--text-3); margin-bottom: 4px; }
+  #tip .r { display: flex; align-items: center; gap: 8px; }
+  #tip .r b { font-size: 14px; font-variant-numeric: tabular-nums; }
+  #tip .r i { width: 12px; height: 2px; border-radius: 1px; flex: none; }
+  #tip .r span { color: var(--text-2); }
+
+  .stat3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 6px 0 4px; }
+  .stat3 div { border-left: 2px solid var(--series-1); padding: 2px 0 2px 10px; }
+  .stat3 b { display: block; font-size: 24px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .stat3 span { font-size: 12px; color: var(--text-2); }
+
+  .cmp { display: grid; grid-template-columns: 1.4fr 1fr 1fr; font-size: 13px; font-variant-numeric: tabular-nums; }
+  .cmp > * { padding: 8px 6px; border-bottom: 1px solid var(--line); }
+  .cmp .hd { color: var(--text-3); font-size: 12px; font-weight: 500; text-align: right; }
+  .cmp .hd:first-child { text-align: left; }
+  .cmp .k { color: var(--text-2); }
+  .cmp .v { text-align: right; font-weight: 600; }
+  .cmp .v.m { color: var(--series-1); }
+  .cmp .v.c { color: var(--series-2); }
+
+  .how ol { counter-reset: s; list-style: none; padding: 0; margin: 0; display: grid; gap: 1px;
+            grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); background: var(--line);
+            border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .how li { background: var(--surface-1); padding: 16px 18px; font-size: 13px; color: var(--text-2); }
+  .how li::before { counter-increment: s; content: "0" counter(s); display: block; color: var(--series-1);
+                    font: 600 12px/1 ui-monospace, Menlo, monospace; margin-bottom: 8px; }
+  .how li b { display: block; color: var(--text-1); font-size: 14px; margin-bottom: 2px; }
+  code { font: 12px ui-monospace, Menlo, Consolas, monospace; background: var(--wash-1); padding: 1px 5px; border-radius: 4px; }
+
+  footer.end { margin: 56px 0 0; padding: 22px 0 40px; border-top: 1px solid var(--line); font-size: 12px; color: var(--text-3); }
+  footer.end p { margin: 0 0 6px; max-width: 80ch; }
+  .err { padding: 40px 0; color: var(--text-2); }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <p class="eyebrow">Data analytics demo · PostgreSQL + SQL</p>
+    <h1>What <em id="h1-n">3 million</em> calls to 311 say about New York</h1>
+    <p class="lede">I took a full year of public 311 service requests from NYC Open Data, modelled it in PostgreSQL and asked the questions a city operations team would ask: when do requests arrive, what people complain about and how that changes with the seasons, how long each agency takes to close them, where they come from and how people reach the city.</p>
+    <div class="byline">
+      <span><strong>Jorge Valencia</strong> · data analysis and automation</span>
+      <span id="period"></span>
+      <a href="https://github.com/jorvalfe6-byte/nyc311-sql-analytics">Code and queries on GitHub</a>
+    </div>
+    <div class="kpis" id="kpis" aria-label="Key figures"></div>
+  </div>
+</header>
+
+<main id="main">
+  <section class="block">
+    <div class="wrap">
+      <h2>Demand</h2>
+      <p class="sub" id="sub-demand"></p>
+      <div class="grid">
+        <article class="card span-7">
+          <h3 id="h-monthly"></h3>
+          <p class="desc">Requests created per month, with a 3-month moving average.</p>
+          <div class="legend" id="lg-monthly"></div>
+          <div class="chart" id="c-monthly"></div>
+          <footer><details><summary>View table</summary><div class="tbl" id="tb-monthly"></div></details>
+            <a href="https://github.com/jorvalfe6-byte/nyc311-sql-analytics/blob/main/sql/analysis/02_monthly_volume.sql">SQL ↗</a></footer>
+        </article>
+        <article class="card span-5">
+          <h3 id="h-top"></h3>
+          <p class="desc">The 15 most frequent complaint types.</p>
+          <div class="chart" id="c-top"></div>
+          <footer><details><summary>View table</summary><div class="tbl" id="tb-top"></div></details>
+            <a href="https://github.com/jorvalfe6-byte/nyc311-sql-analytics/blob/main/sql/analysis/04_top_complaints.sql">SQL ↗</a></footer>
+        </article>
+        <article class="card">
+          <h3 id="h-heat"></h3>
+          <p class="desc">Average requests created in each hour of the week. Darker is busier.</p>
+          <div class="chart" id="c-heat"></div>
+          <footer><details><summary>View table</summary><div class="tbl" id="tb-heat"></div></details>
+            <a href="https://github.com/jorvalfe6-byte/nyc311-sql-analytics/blob/main/sql/analysis/03_weekday_hour.sql">SQL ↗</a></footer>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="wrap">
+      <h2>Seasons</h2>
+      <p class="sub">The same city complains about different things as the weather changes.</p>
+      <div class="grid">
+        <article class="card span-7">
+          <h3 id="h-season"></h3>
+          <p class="desc">The 12 most frequent complaint types, by month of creation. Each row is scaled to its own busiest month, so darker means "peak of this complaint", not "more requests than the others".</p>
+          <div class="chart" id="c-season"></div>
+          <footer><details><summary>View table</summary><div class="tbl" id="tb-season"></div></details>
+            <a href="https://github.com/jorvalfe6-byte/nyc311-sql-analytics/blob/main/sql/analysis/05_seasonality.sql">SQL ↗</a></footer>
+        </article>
+        <article class="card span-5">
+          <h3 id="h-swing"></h3>
+          <p class="desc">Requests per day in summer (Jun–Aug) and winter (Dec–Feb): the six complaint types that lean most to each, among those with at least 10,000 requests.</p>
+          <div class="legend" id="lg-swing"></div>
+          <div class="chart" id="c-swing"></div>
+          <footer><details><summary>View table</summary><div class="tbl" id="tb-swing"></div></details>
+            <a href="https://github.com/jorvalfe6-byte/nyc311-sql-analytics/blob/main/sql/analysis/05_seasonality.sql">SQL ↗</a></footer>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="wrap">
+      <h2>How long it takes to close</h2>
+      <p class="sub" id="sub-res"></p>
+      <div class="grid">
+        <article class="card span-6">
+          <h3 id="h-agency"></h3>
+          <p class="desc">Hours between creation and closing, for the 12 agencies with the most requests. Median and 90th percentile.</p>
+          <div class="legend" id="lg-agency"></div>
+          <div class="chart" id="c-agency"></div>
+          <footer><details><summary>View table (with the share still open)</summary><div class="tbl" id="tb-agency"></div></details>
+            <a href="https://github.com/jorvalfe6-byte/nyc311-sql-analytics/blob/main/sql/analysis/06_resolution_time.sql">SQL ↗</a></footer>
+        </article>
+        <article class="card span-6">
+          <h3 id="h-slow"></h3>
+          <p class="desc">Slowest complaint types by median time to close, among those with at least 2,000 requests.</p>
+          <div class="legend" id="lg-slow"></div>
+          <div class="chart" id="c-slow"></div>
+          <footer><details><summary>View table (with the share still open)</summary><div class="tbl" id="tb-slow"></div></details>
+            <a href="https://github.com/jorvalfe6-byte/nyc311-sql-analytics/blob/main/sql/analysis/06_resolution_time.sql">SQL ↗</a></footer>
+        </article>
+        <article class="card">
+          <h3>The most frequent complaint types, and how long each takes</h3>
+          <p class="desc">Median and 90th percentile are over closed requests; "still open" is the share of all requests of that type whose status is not Closed.</p>
+          <div class="tbl wrapcells" id="tb-toprow" style="max-height:none"></div>
+          <footer><span></span>
+            <a href="https://github.com/jorvalfe6-byte/nyc311-sql-analytics/blob/main/sql/analysis/06_resolution_time.sql">SQL ↗</a></footer>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="wrap">
+      <h2>Where requests come from</h2>
+      <p class="sub" id="sub-place"></p>
+      <div class="grid">
+        <article class="card span-6">
+          <h3 id="h-map"></h3>
+          <p class="desc" id="d-map"></p>
+          <div class="legend" id="lg-map"></div>
+          <div class="chart" id="c-map"></div>
+          <footer><span id="n-map"></span>
+            <a href="https://github.com/jorvalfe6-byte/nyc311-sql-analytics/blob/main/sql/analysis/08_density_grid.sql">SQL ↗</a></footer>
+        </article>
+        <div class="colstack span-6">
+          <article class="card">
+            <h3 id="h-borough"></h3>
+            <p class="desc">Requests by borough. Median hours to close, over closed requests.</p>
+            <div class="tbl wrapcells" id="tb-borough" style="max-height:none"></div>
+            <footer><span></span>
+              <a href="https://github.com/jorvalfe6-byte/nyc311-sql-analytics/blob/main/sql/analysis/07_geography.sql">SQL ↗</a></footer>
+          </article>
+          <article class="card">
+            <h3>Demand is concentrated</h3>
+            <p class="desc" id="d-conc"></p>
+            <div class="stat3" id="s-conc"></div>
+            <footer><span></span>
+              <a href="https://github.com/jorvalfe6-byte/nyc311-sql-analytics/blob/main/sql/analysis/07_geography.sql">SQL ↗</a></footer>
+          </article>
+        </div>
+        <article class="card">
+          <h3 id="h-zip"></h3>
+          <p class="desc">Top 12 ZIP codes by number of requests (valid ZIPs only).</p>
+          <div class="chart" id="c-zip"></div>
+          <footer><details><summary>View table</summary><div class="tbl" id="tb-zip"></div></details>
+            <a href="https://github.com/jorvalfe6-byte/nyc311-sql-analytics/blob/main/sql/analysis/07_geography.sql">SQL ↗</a></footer>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="wrap">
+      <h2>How people reach the city, and what the data gets wrong</h2>
+      <p class="sub">Each request records the channel it came through. The data also has flaws, counted here.</p>
+      <div class="grid">
+        <article class="card span-7">
+          <h3 id="h-channel"></h3>
+          <p class="desc">Share of each month's requests by channel.</p>
+          <div class="legend" id="lg-channel"></div>
+          <div class="chart" id="c-channel"></div>
+          <footer><details><summary>View table</summary><div class="tbl" id="tb-channel"></div></details>
+            <a href="https://github.com/jorvalfe6-byte/nyc311-sql-analytics/blob/main/sql/analysis/09_channels.sql">SQL ↗</a></footer>
+        </article>
+        <article class="card span-5">
+          <h3 id="h-quality"></h3>
+          <p class="desc">Counted over all requests. None is deleted: each one is flagged in the database.</p>
+          <div class="tbl wrapcells" id="tb-quality" style="max-height:none"></div>
+          <footer><span></span>
+            <a href="https://github.com/jorvalfe6-byte/nyc311-sql-analytics/blob/main/sql/analysis/10_data_quality_issues.sql">SQL ↗</a></footer>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="block how">
+    <div class="wrap">
+      <h2>How it's built</h2>
+      <p class="sub">The whole process rebuilds from scratch with one command (<code>./scripts/load.sh</code>).</p>
+      <ol>
+        <li><b>Staging</b>The 12 monthly CSV files, downloaded from the public API, load as plain text with <code>\copy</code>, so an odd value never stops the load.</li>
+        <li><b>Core</b>Typed model with primary keys, foreign keys and <code>CHECK</code>s. Nothing is dropped for being implausible; the raw facts stay.</li>
+        <li><b>Checks</b>Every load runs data-quality checks and fails if any says <code>REVIEW</code>.</li>
+        <li><b>Mart</b>A materialized view with one row per request and a flag for each problem: closed before created, bad ZIP, no coordinates, possible duplicate.</li>
+        <li><b>Analysis</b>Window functions, percentiles, a generated calendar, seasonal normalisation per day and a lat/long grid over millions of rows.</li>
+        <li><b>Publication</b>Only aggregates leave the database, as one JSON that this page draws without external libraries and without map tiles.</li>
+      </ol>
+    </div>
+  </section>
+</main>
+
+<footer class="end">
+  <div class="wrap">
+    <p>Data: <a href="https://data.cityofnewyork.us/Social-Services/311-Service-Requests-from-2010-to-Present/erm2-nwe9">311 Service Requests from 2010 to Present</a>, published by the City of New York on NYC Open Data under its <a href="https://www.nyc.gov/html/data/terms.html">Terms of Use</a>. This page publishes aggregates only: no individual request, address or description.</p>
+    <p>Times are local to New York City (the source has no time zone). The source is updated daily, so closing dates of requests created in 2024 keep changing: figures here correspond to the day the data was loaded. <span id="excluded"></span> <span id="gen"></span></p>
+  </div>
+</footer>
+
+<div id="tip" role="status" aria-live="polite"></div>
+
+<script>
+"use strict";
+// ---------- formatting ----------
+const nf0 = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 });
+const nf1 = new Intl.NumberFormat("en-US", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+const pct = v => nf1.format(v) + " %";
+const compact = v => v >= 1e6 ? nf1.format(v / 1e6) + " M" : v >= 1e3 ? nf0.format(v / 1e3) + " K" : nf0.format(v);
+const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const monthTxt = s => { const [y, m] = s.split("-"); return MONTHS[+m - 1] + " " + y; };
+const monthShort = s => MONTHS[+s.split("-")[1] - 1];
+const hourTxt = h => (h % 12 === 0 ? 12 : h % 12) + (h < 12 ? " am" : " pm");
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const fit = (str, px) => { const n = Math.max(6, Math.floor(px / 6.1)); return str.length > n ? str.slice(0, n - 1) + "…" : str; };
+
+// ---------- DOM helpers (text always goes in through textContent) ----------
+const NS = "http://www.w3.org/2000/svg";
+function s(tag, attrs = {}, parent) {
+  const e = document.createElementNS(NS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  if (parent) parent.appendChild(e);
+  return e;
+}
+function txt(parent, x, y, str, attrs = {}) {
+  const { fill, ...rest } = attrs;
+  const t = s("text", { x, y, ...rest }, parent);
+  if (fill) t.style.fill = fill;
+  t.textContent = str; return t;
+}
+function h(tag, cls, str) { const e = document.createElement(tag); if (cls) e.className = cls; if (str != null) e.textContent = str; return e; }
+function svgRoot(el, w, hgt, label) {
+  el.textContent = "";
+  return s("svg", { viewBox: `0 0 ${w} ${hgt}`, role: "img", "aria-label": label }, el);
+}
+function barPath(x, y, w, hgt, r = 4) {
+  r = Math.min(r, w, hgt / 2);
+  if (w <= 0) return "";
+  return `M${x},${y}H${x + w - r}Q${x + w},${y} ${x + w},${y + r}V${y + hgt - r}Q${x + w},${y + hgt} ${x + w - r},${y + hgt}H${x}Z`;
+}
+function niceMax(v) { const p = Math.pow(10, Math.floor(Math.log10(v))), n = v / p;
+  return ([1, 1.2, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10].find(x => n <= x)) * p; }
+
+// ---------- tooltip ----------
+const tip = document.getElementById("tip");
+function showTip(ev, title, rows) {
+  tip.textContent = "";
+  tip.appendChild(h("div", "t", title));
+  for (const r of rows) {
+    const row = h("div", "r");
+    if (r.color) { const i = h("i"); i.style.background = r.color; row.appendChild(i); }
+    row.appendChild(h("b", null, r.value));
+    if (r.name) row.appendChild(h("span", null, r.name));
+    tip.appendChild(row);
+  }
+  let x, y;
+  if (ev.clientX != null && ev.type !== "focus") { x = ev.clientX; y = ev.clientY; }
+  else { const b = ev.target.getBoundingClientRect(); x = b.left + b.width / 2; y = b.top; }
+  tip.classList.add("show");
+  const tw = tip.offsetWidth, th = tip.offsetHeight;
+  let left = x + 14, top = y - th - 10;
+  if (left + tw > innerWidth - 8) left = x - tw - 14;
+  if (top < 8) top = y + 16;
+  tip.style.left = Math.max(8, left) + "px"; tip.style.top = top + "px";
+}
+function hideTip() { tip.classList.remove("show"); }
+function bindHover(hit, mark, chartEl, fn) {
+  hit.setAttribute("tabindex", "0");
+  const on = ev => { chartEl.classList.add("hovering"); mark.classList.add("on"); fn(ev); };
+  const off = () => { chartEl.classList.remove("hovering"); mark.classList.remove("on"); hideTip(); };
+  hit.addEventListener("pointermove", on); hit.addEventListener("focus", on);
+  hit.addEventListener("pointerleave", off); hit.addEventListener("blur", off);
+}
+
+// ---------- accessible table ----------
+function table(el, cols, rows) {
+  const t = h("table"), thead = h("thead"), tr = h("tr");
+  cols.forEach(c => { const th = h("th", c.n ? "n" : null, c.t); th.scope = "col"; tr.appendChild(th); });
+  thead.appendChild(tr); t.appendChild(thead);
+  const tb = h("tbody");
+  rows.forEach(r => { const row = h("tr"); cols.forEach(c => row.appendChild(h("td", c.n ? "n" : null, c.f(r)))); tb.appendChild(row); });
+  t.appendChild(tb); el.textContent = ""; el.appendChild(t);
+}
+function legend(el, items) {
+  el.textContent = "";
+  for (const it of items) {
+    const sp = h("span"), i = h("i", it.type + (it.dash ? " dash" : ""));
+    i.style.background = it.color; i.style.color = it.color;
+    sp.appendChild(i); sp.appendChild(document.createTextNode(it.name)); el.appendChild(sp);
+  }
+}
+
+// ---------- line chart with crosshair ----------
+// opt: label, fmtY, fmtV, xLabel(d), xTitle(d), xSteps [narrow, mid, wide], tipExtra(d), area
+function lineChart(el, data, series, opt) {
+  const W = el.clientWidth || 700, H = Math.round(Math.max(230, Math.min(330, W * .46)));
+  const m = { t: 14, r: 84, b: 26, l: 52 };
+  const svg = svgRoot(el, W, H, opt.label);
+  const iw = W - m.l - m.r, ih = H - m.t - m.b;
+  const ymax = niceMax(Math.max(...data.flatMap(d => series.map(sr => d[sr.key]))));
+  const X = i => m.l + (iw * i) / (data.length - 1), Y = v => m.t + ih - (ih * v) / ymax;
+  const g = s("g", { class: "grid" }, svg), ax = s("g", { class: "axis" }, svg);
+  for (let k = 0; k <= 4; k++) {
+    const v = (ymax * k) / 4, y = Y(v);
+    s("line", { x1: m.l, x2: m.l + iw, y1: y, y2: y }, g);
+    txt(ax, m.l - 8, y + 4, opt.fmtY(v), { "text-anchor": "end" });
+  }
+  const [sN, sM, sW] = opt.xSteps || [4, 3, 2];
+  const step = W < 420 ? sN : W < 640 ? sM : sW;
+  data.forEach((d, i) => { if (i % step === 0) txt(ax, X(i), H - 6, opt.xLabel(d), { "text-anchor": "middle" }); });
+  if (opt.area !== false) {
+    const p0 = series[0];
+    s("path", { d: `M${X(0)},${Y(0)}` + data.map((d, i) => `L${X(i)},${Y(d[p0.key])}`).join("") + `L${X(data.length - 1)},${Y(0)}Z`, fill: css("--wash-1") }, svg);
+  }
+  series.forEach(sr => {
+    s("path", { d: data.map((d, i) => (i ? "L" : "M") + X(i) + "," + Y(d[sr.key])).join(""), fill: "none",
+                stroke: sr.color, "stroke-width": 2, "stroke-linejoin": "round", "stroke-linecap": "round",
+                ...(sr.dash ? { "stroke-dasharray": "5 4" } : {}) }, svg);
+  });
+  const last = data.length - 1;
+  const ends = series.map(sr => ({ sr, y: Y(data[last][sr.key]) })).sort((a, b) => a.y - b.y);
+  for (let k = 1; k < ends.length; k++) if (ends[k].y - ends[k - 1].y < 30) ends[k].y = ends[k - 1].y + 30;
+  ends.forEach(e => {
+    s("circle", { cx: X(last), cy: Y(data[last][e.sr.key]), r: 4, fill: e.sr.color, stroke: css("--surface-1"), "stroke-width": 2 }, svg);
+    txt(svg, X(last) + 10, e.y - 2, e.sr.short, { class: "lbl" });
+    txt(svg, X(last) + 10, e.y + 12, opt.fmtV(data[last][e.sr.key]));
+  });
+  const cross = s("line", { y1: m.t, y2: m.t + ih, stroke: css("--text-3"), "stroke-width": 1, opacity: 0 }, svg);
+  const dots = series.map(sr => s("circle", { r: 4, fill: sr.color, stroke: css("--surface-1"), "stroke-width": 2, opacity: 0 }, svg));
+  const ov = s("rect", { x: m.l, y: m.t, width: iw, height: ih, fill: "transparent", tabindex: 0 }, svg);
+  let cur = last;
+  const show = (i, ev) => {
+    cur = i; const d = data[i];
+    cross.setAttribute("x1", X(i)); cross.setAttribute("x2", X(i)); cross.setAttribute("opacity", 1);
+    dots.forEach((c, k) => { c.setAttribute("cx", X(i)); c.setAttribute("cy", Y(d[series[k].key])); c.setAttribute("opacity", 1); });
+    const r = series.map(sr => ({ color: sr.color, value: opt.fmtV(d[sr.key]), name: sr.name }));
+    if (opt.tipExtra) r.push(...opt.tipExtra(d));
+    showTip(ev, opt.xTitle(d), r);
+  };
+  ov.addEventListener("pointermove", ev => {
+    const b = svg.getBoundingClientRect(), px = ((ev.clientX - b.left) / b.width) * W;
+    show(Math.max(0, Math.min(last, Math.round(((px - m.l) / iw) * last))), ev);
+  });
+  ov.addEventListener("focus", ev => show(cur, ev));
+  ov.addEventListener("keydown", ev => {
+    if (ev.key === "ArrowRight" || ev.key === "ArrowLeft") {
+      ev.preventDefault(); const i = Math.max(0, Math.min(last, cur + (ev.key === "ArrowRight" ? 1 : -1)));
+      const b = svg.getBoundingClientRect();
+      show(i, { clientX: b.left + (X(i) / W) * b.width, clientY: b.top + (m.t / H) * b.height + 20 });
+    }
+  });
+  const off = () => { cross.setAttribute("opacity", 0); dots.forEach(c => c.setAttribute("opacity", 0)); hideTip(); };
+  ov.addEventListener("pointerleave", off); ov.addEventListener("blur", off);
+}
+
+// ---------- horizontal bars ----------
+function barsH(el, rows, opt) {
+  const W = el.clientWidth || 600;
+  const ser = opt.series, nS = ser.length;
+  const barH = Math.min(opt.barH || 16, 24), gap = 2, pad = opt.bandPad || 10, band = nS * barH + (nS - 1) * gap + pad;
+  const labW = opt.labelW || Math.min(190, W * .42);
+  const m = { t: 4, r: 64, b: 4, l: labW };
+  const H = m.t + rows.length * band + m.b;
+  const svg = svgRoot(el, W, H, opt.label);
+  const iw = W - m.l - m.r;
+  const max = opt.max || niceMax(Math.max(...rows.flatMap(r => ser.map(sr => r[sr.key]))));
+  const Xs = v => (iw * v) / max;
+  s("line", { x1: m.l, x2: m.l, y1: m.t - 2, y2: H - m.b, stroke: css("--line"), "stroke-width": 1 }, svg);
+  rows.forEach((r, i) => {
+    const y0 = m.t + i * band + pad / 2;
+    txt(svg, m.l - 10, y0 + (nS * barH + (nS - 1) * gap) / 2 + 4, fit(opt.labelOf(r), m.l - 14), { "text-anchor": "end", fill: css("--text-1") });
+    ser.forEach((sr, k) => {
+      const y = y0 + k * (barH + gap), w = Math.max(1, Xs(r[sr.key]));
+      const mark = s("path", { d: barPath(m.l, y, w, barH), fill: sr.color, class: "mark" }, svg);
+      txt(svg, m.l + w + 6, y + barH / 2 + 4, sr.fmt(r[sr.key]), { class: k === 0 ? "lbl val" : "val" });
+      const hit = s("rect", { x: 0, y: y - gap / 2, width: W, height: barH + gap, class: "hit" }, svg);
+      svg.insertBefore(hit, mark);
+      bindHover(hit, mark, el, ev => showTip(ev, opt.labelOf(r), opt.tipRows(r)));
+    });
+  });
+}
+
+// ---------- week x hour heatmap ----------
+const DAYS = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"], DAYS_FULL = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
+function weekHeat(el, rows) {
+  const W = el.clientWidth || 640, m = { t: 18, r: 2, b: 26, l: 38 };
+  const cw = (W - m.l - m.r) / 24, ch = Math.max(20, Math.min(30, cw * .85));
+  const H = m.t + 7 * ch + m.b;
+  const svg = svgRoot(el, W, H, "Average requests by weekday and hour of the day");
+  const max = Math.max(...rows.map(r => r.requests_per_day));
+  const steps = [0, 1, 2, 3, 4, 5].map(k => css("--seq-" + k));
+  const stepOf = v => Math.min(5, Math.floor((v / max) * 5.999));
+  DAYS.forEach((d, i) => txt(svg, m.l - 8, m.t + i * ch + ch / 2 + 4, d, { "text-anchor": "end" }));
+  for (let hr = 0; hr < 24; hr += (W < 520 ? 6 : 3)) txt(svg, m.l + hr * cw + cw / 2, 12, hr + "h", { "text-anchor": "middle", fill: css("--text-3") });
+  rows.forEach(r => {
+    const x = m.l + r.hour * cw, y = m.t + (r.dow - 1) * ch;
+    const mark = s("rect", { x: x + 1, y: y + 1, width: cw - 2, height: ch - 2, rx: 2, fill: steps[stepOf(r.requests_per_day)], class: "mark" }, svg);
+    const hit = s("rect", { x, y, width: cw, height: ch, class: "hit" }, svg);
+    svg.insertBefore(hit, mark);
+    bindHover(hit, mark, el, ev => showTip(ev, DAYS_FULL[r.dow - 1] + ", " + hourTxt(r.hour), [{ color: steps[Math.max(2, stepOf(r.requests_per_day))], value: nf0.format(r.requests_per_day), name: "requests on average" }]));
+  });
+  const ly = H - 10;
+  txt(svg, m.l, ly + 4, "fewer", { fill: css("--text-3") });
+  steps.forEach((c, k) => s("rect", { x: m.l + 36 + k * 24, y: ly - 4, width: 22, height: 8, rx: 2, fill: c }, svg));
+  txt(svg, m.l + 36 + 6 * 24 + 4, ly + 4, "more", { fill: css("--text-3") });
+}
+
+// ---------- project-specific formatting ----------
+const hrs = v => v == null ? "–" : v < 1 ? Math.round(v * 60) + " min" : v < 48 ? nf1.format(v) + " h" : nf1.format(v / 24) + " days";
+const pct2 = v => new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v) + " %";
+const titleCase = str => str.toLowerCase().replace(/\b[a-z]/g, c => c.toUpperCase());
+const nice = str => str.length > 3 && str === str.toUpperCase() ? titleCase(str) : str;   // "HEAT/HOT WATER" -> "Heat/Hot Water"
+const monthNum = s => +s.split("-")[1];
+
+// ---------- season heatmap: complaint type x month, each row scaled to its own peak ----------
+function seasonHeat(el, rows) {
+  const W = el.clientWidth || 640;
+  const types = [...new Map(rows.map(r => [r.rank, r.complaint_type])).entries()].sort((a, b) => a[0] - b[0]);
+  const labW = Math.min(170, W * .34), m = { t: 18, r: 2, b: 26, l: labW };
+  const cw = (W - m.l - m.r) / 12, ch = 24, H = m.t + types.length * ch + m.b;
+  const svg = svgRoot(el, W, H, "Requests by complaint type and month, each row scaled to its busiest month");
+  const steps = [0, 1, 2, 3, 4, 5].map(k => css("--seq-" + k));
+  MONTHS.forEach((mn, i) => txt(svg, m.l + i * cw + cw / 2, 12, W < 520 ? mn[0] : mn, { "text-anchor": "middle", fill: css("--text-3") }));
+  types.forEach(([rank, type], i) => {
+    const cells = rows.filter(r => r.rank === rank), mx = Math.max(...cells.map(c => c.requests)), tot = cells.reduce((a, c) => a + c.requests, 0);
+    txt(svg, m.l - 8, m.t + i * ch + ch / 2 + 4, fit(nice(type), m.l - 12), { "text-anchor": "end", fill: css("--text-1") });
+    cells.forEach(c => {
+      const x = m.l + (c.month - 1) * cw, y = m.t + i * ch, st = Math.min(5, Math.floor((c.requests / mx) * 5.999));
+      const mark = s("rect", { x: x + 1, y: y + 1, width: cw - 2, height: ch - 2, rx: 2, fill: steps[st], class: "mark" }, svg);
+      const hit = s("rect", { x, y, width: cw, height: ch, class: "hit" }, svg);
+      svg.insertBefore(hit, mark);
+      bindHover(hit, mark, el, ev => showTip(ev, nice(type) + ", " + MONTHS[c.month - 1], [
+        { color: steps[Math.max(2, st)], value: nf0.format(c.requests), name: "requests" },
+        { value: nf1.format(100 * c.requests / tot) + " %", name: "of the year's total for this type" }]));
+    });
+  });
+  const ly = H - 10;
+  txt(svg, m.l, ly + 4, "low", { fill: css("--text-3") });
+  steps.forEach((c, k) => s("rect", { x: m.l + 36 + k * 24, y: ly - 4, width: 22, height: 8, rx: 2, fill: c }, svg));
+  txt(svg, m.l + 36 + 6 * 24 + 4, ly + 4, "peak", { fill: css("--text-3") });
+}
+
+// ---------- density map (lat/lng grid projected, no tiles, no external service) ----------
+const MAP_BOX = { lat0: 40.49, lat1: 40.92, lng0: -74.27, lng1: -73.68 };   // the five boroughs
+const CELL = { lat: 0.004, lng: 0.005 };                                     // must match mart.dash_map
+function gridMap(el, cells) {
+  const W = el.clientWidth || 540, pad = 10, B = MAP_BOX;
+  const k = Math.cos(((B.lat0 + B.lat1) / 2) * Math.PI / 180);
+  const iw = W - 2 * pad, ih = iw * ((B.lat1 - B.lat0) / ((B.lng1 - B.lng0) * k)), H = ih + 2 * pad;
+  const svg = svgRoot(el, W, H, "Map of 311 request density on a latitude and longitude grid");
+  const X = lng => pad + iw * (lng - B.lng0) / (B.lng1 - B.lng0), Y = lat => pad + ih * (1 - (lat - B.lat0) / (B.lat1 - B.lat0));
+  const cw = iw * CELL.lng / (B.lng1 - B.lng0), chh = ih * CELL.lat / (B.lat1 - B.lat0);
+  s("rect", { x: pad, y: pad, width: iw, height: ih, rx: 6, fill: "none", stroke: css("--line") }, svg);
+  const steps = [0, 1, 2, 3, 4, 5].map(c => css("--seq-" + c));
+  const inside = cells.filter(c => c[0] >= B.lat0 && c[0] <= B.lat1 && c[1] >= B.lng0 && c[1] <= B.lng1);
+  const max = Math.max(...inside.map(c => c[2])), lmax = Math.log(max / 25) || 1;
+  const stepOf = n => Math.max(0, Math.min(5, Math.floor(Math.log(n / 25) / lmax * 5.999)));
+  const byKey = new Map(inside.map(c => [c[0] + "|" + c[1], c]));
+  [...inside].sort((a, b) => a[2] - b[2]).forEach(c =>
+    s("rect", { x: X(c[1]) - cw / 2, y: Y(c[0]) - chh / 2, width: cw + .4, height: chh + .4, fill: steps[stepOf(c[2])] }, svg));
+  const ov = s("rect", { x: pad, y: pad, width: iw, height: ih, class: "hit" }, svg);
+  ov.addEventListener("pointermove", ev => {
+    const b = svg.getBoundingClientRect(), px = ((ev.clientX - b.left) / b.width) * W, py = ((ev.clientY - b.top) / b.height) * H;
+    const lng = B.lng0 + (px - pad) / iw * (B.lng1 - B.lng0), lat = B.lat0 + (1 - (py - pad) / ih) * (B.lat1 - B.lat0);
+    const cy = Number((Math.floor(lat / CELL.lat) * CELL.lat + CELL.lat / 2).toFixed(3)), cx = Number((Math.floor(lng / CELL.lng) * CELL.lng + CELL.lng / 2).toFixed(4));
+    const c = byKey.get(cy + "|" + cx);
+    if (!c) return hideTip();
+    showTip(ev, "Near " + cy.toFixed(3) + ", " + cx.toFixed(3), [
+      { color: steps[Math.max(2, stepOf(c[2]))], value: nf0.format(c[2]), name: "requests in this cell (about 440 × 420 m)" }]);
+  });
+  ov.addEventListener("pointerleave", hideTip);
+  // legend scale
+  const ly = H + 14;
+  return { shown: inside.length, requests: inside.reduce((a, c) => a + c[2], 0), steps, max };
+}
+
+// ---------- assembly ----------
+function render(D) {
+  const k = D.kpis, S1 = css("--series-1"), S2 = css("--series-2"), S3 = css("--series-3"), S4 = css("--series-4");
+  const mo = D.monthly, first = mo[0], lastM = mo[mo.length - 1];
+  const peakM = mo.reduce((a, b) => b.requests > a.requests ? b : a);
+  const lowM = mo.reduce((a, b) => b.requests < a.requests ? b : a);
+
+  document.getElementById("h1-n").textContent = nf1.format(k.requests / 1e6) + " million";
+  document.getElementById("period").textContent = "Requests created " + k.first_day + " to " + k.last_day;
+  document.getElementById("gen").textContent = "Data loaded on " + D.generated + ".";
+  document.getElementById("excluded").textContent = nf0.format(k.excluded_from_resolution) +
+    " closed requests have no usable closing time (missing, or earlier than the creation time): they are left out of the resolution statistics and kept in every other count.";
+  const kp = document.getElementById("kpis"); kp.textContent = "";
+  [["Requests", nf0.format(k.requests), nf0.format(k.agencies) + " agencies, " + nf0.format(k.complaint_types) + " complaint types"],
+   ["Per day", nf0.format(k.requests_per_day), "on average"],
+   ["Median time to close", hrs(k.median_hours), "90 % close within " + hrs(k.p90_hours)],
+   ["Still open", pct2(k.pct_open), "status not Closed at load"],
+   ["Top complaint", pct(k.top_complaint_pct), nice(k.top_complaint)]
+  ].forEach(([a, b, c]) => { const d = h("div", "kpi"); d.appendChild(h("span", null, a)); d.appendChild(h("b", null, b)); d.appendChild(h("small", null, c)); kp.appendChild(d); });
+
+  // monthly demand
+  document.getElementById("sub-demand").textContent =
+    monthTxt(peakM.month) + " was the busiest month, with " + compact(peakM.requests) + " requests; " + monthTxt(lowM.month) + " the quietest, with " + compact(lowM.requests) + ".";
+  document.getElementById("h-monthly").textContent =
+    "Demand peaks in " + MONTHS[monthNum(peakM.month) - 1] + " at " + compact(peakM.requests) + " requests; " + MONTHS[monthNum(lowM.month) - 1] + " has " + Math.round(100 * lowM.requests / peakM.requests) + " % of that";
+  legend(document.getElementById("lg-monthly"), [{ type: "ln", color: S1, name: "Requests per month" }, { type: "ln", color: S2, name: "3-month average", dash: true }]);
+  lineChart(document.getElementById("c-monthly"), mo,
+    [{ key: "requests", name: "requests", short: "Requests", color: S1 }, { key: "requests_ma3", name: "3-month average", short: "3-mo avg", color: S2, dash: true }],
+    { label: "Requests per month in " + first.month.slice(0, 4), fmtY: compact, fmtV: nf0.format, xLabel: d => monthShort(d.month), xTitle: d => monthTxt(d.month),
+      tipExtra: d => [{ value: hrs(d.median_hours), name: "median time to close" }] });
+  table(document.getElementById("tb-monthly"), [
+    { t: "Month", f: r => monthTxt(r.month) }, { t: "Requests", n: 1, f: r => nf0.format(r.requests) },
+    { t: "3-mo avg", n: 1, f: r => nf0.format(r.requests_ma3) }, { t: "Median to close", n: 1, f: r => hrs(r.median_hours) }, { t: "% open", n: 1, f: r => pct2(r.pct_open) }], mo);
+
+  // top complaints
+  const tc = D.top_complaints, top3 = tc.slice(0, 3).reduce((a, r) => a + r.pct, 0);
+  document.getElementById("h-top").textContent = "The three most frequent complaint types are " + nf0.format(Math.round(top3)) + " % of all requests";
+  barsH(document.getElementById("c-top"), tc, {
+    label: "The 15 most frequent complaint types", barH: 14, bandPad: 8, labelOf: r => nice(r.complaint_type),
+    series: [{ key: "requests", name: "requests", color: S1, fmt: compact }],
+    tipRows: r => [{ color: S1, value: nf0.format(r.requests), name: "requests" }, { value: nf1.format(r.pct) + " %", name: "of all requests" }, { value: hrs(r.median_hours), name: "median time to close" }]
+  });
+  table(document.getElementById("tb-top"), [
+    { t: "#", n: 1, f: r => r.rank }, { t: "Complaint type", f: r => r.complaint_type }, { t: "Requests", n: 1, f: r => nf0.format(r.requests) },
+    { t: "% of total", n: 1, f: r => nf1.format(r.pct) + " %" }], tc);
+
+  // week heatmap
+  const heatMax = D.heat.reduce((a, b) => b.requests_per_day > a.requests_per_day ? b : a);
+  const dayTot = d => D.heat.filter(r => r.dow === d).reduce((a, r) => a + r.requests_per_day, 0);
+  const wdAvg = [1, 2, 3, 4, 5].reduce((a, d) => a + dayTot(d), 0) / 5, weAvg = (dayTot(6) + dayTot(7)) / 2;
+  document.getElementById("h-heat").textContent = "The busiest hour of the week is " + DAYS_FULL[heatMax.dow - 1] + " at " + hourTxt(heatMax.hour) + "; a weekend day brings " + Math.round(100 * weAvg / wdAvg) + " % of a weekday's requests";
+  weekHeat(document.getElementById("c-heat"), D.heat);
+  table(document.getElementById("tb-heat"), [{ t: "Day", f: r => DAYS_FULL[r.dow - 1] }, { t: "Hour", f: r => r.hour + ":00" }, { t: "Requests on average", n: 1, f: r => nf0.format(r.requests_per_day) }], D.heat);
+
+  // seasons
+  const byType = {};
+  D.season_heat.forEach(r => (byType[r.complaint_type] ||= []).push(r));
+  const swings = Object.entries(byType).map(([type, rs]) => {
+    const hi = rs.reduce((a, b) => b.requests > a.requests ? b : a), lo = rs.reduce((a, b) => b.requests < a.requests ? b : a);
+    return { type, hi, lo, ratio: hi.requests / lo.requests };
+  }).sort((a, b) => b.ratio - a.ratio);
+  const sw0 = swings[0];
+  document.getElementById("h-season").textContent = nice(sw0.type) + " peaks in " + MONTHS[sw0.hi.month - 1] + " at " + nf1.format(sw0.ratio) + " times its quietest month (" + MONTHS[sw0.lo.month - 1] + ")";
+  seasonHeat(document.getElementById("c-season"), D.season_heat);
+  table(document.getElementById("tb-season"), [{ t: "Complaint type", f: r => r.complaint_type }, { t: "Month", f: r => MONTHS[r.month - 1] }, { t: "Requests", n: 1, f: r => nf0.format(r.requests) }],
+    [...D.season_heat].sort((a, b) => a.rank - b.rank || a.month - b.month));
+  const sg = [...D.season_swing].sort((a, b) => b.ratio - a.ratio);
+  const up = sg[0], dn = sg[sg.length - 1];
+  document.getElementById("h-swing").textContent = nice(up.complaint_type) + " runs " + nf1.format(up.summer_per_day / up.winter_per_day) + " times higher in summer; " + nice(dn.complaint_type) + " " + nf1.format(dn.winter_per_day / dn.summer_per_day) + " times higher in winter";
+  legend(document.getElementById("lg-swing"), [{ type: "rect", color: S1, name: "Winter" }, { type: "rect", color: S2, name: "Summer" }]);
+  barsH(document.getElementById("c-swing"), sg, {
+    label: "Requests per day in winter and summer, for the complaint types that lean most to each", barH: 10, bandPad: 10, labelOf: r => nice(r.complaint_type),
+    series: [{ key: "winter_per_day", name: "winter", color: S1, fmt: v => nf0.format(v) }, { key: "summer_per_day", name: "summer", color: S2, fmt: v => nf0.format(v) }],
+    tipRows: r => [{ color: S1, value: nf1.format(r.winter_per_day), name: "requests per winter day" }, { color: S2, value: nf1.format(r.summer_per_day), name: "requests per summer day" }, { value: nf2(r.ratio) + "×", name: "summer over winter" }]
+  });
+  table(document.getElementById("tb-swing"), [{ t: "Complaint type", f: r => r.complaint_type }, { t: "Winter/day", n: 1, f: r => nf1.format(r.winter_per_day) },
+    { t: "Summer/day", n: 1, f: r => nf1.format(r.summer_per_day) }, { t: "Summer ÷ winter", n: 1, f: r => nf2(r.ratio) }], sg);
+
+  // resolution
+  document.getElementById("sub-res").textContent =
+    "Across all requests the median time to close is " + hrs(k.median_hours) + " and 90 % are closed within " + hrs(k.p90_hours) + ". " + pct2(k.pct_open) + " were not closed when the data was loaded.";
+  const ag = [...D.agency].sort((a, b) => b.median_hours - a.median_hours);
+  document.getElementById("h-agency").textContent = ag[0].agency + " takes a median of " + hrs(ag[0].median_hours) + " to close a request; " + ag[ag.length - 1].agency + " takes " + hrs(ag[ag.length - 1].median_hours);
+  const rl = [{ type: "rect", color: S1, name: "Median" }, { type: "rect", color: S2, name: "90th percentile" }];
+  legend(document.getElementById("lg-agency"), rl); legend(document.getElementById("lg-slow"), rl);
+  const resOpt = (lbl, lab) => ({ label: lbl, barH: 10, bandPad: 10, labelOf: lab,
+    series: [{ key: "median_hours", name: "median", color: S1, fmt: hrs }, { key: "p90_hours", name: "90th percentile", color: S2, fmt: hrs }],
+    tipRows: r => [{ color: S1, value: hrs(r.median_hours), name: "median" }, { color: S2, value: hrs(r.p90_hours), name: "90th percentile" },
+                   { value: nf0.format(r.requests), name: "requests" }, { value: pct2(r.pct_open), name: "still open" }] });
+  barsH(document.getElementById("c-agency"), ag, resOpt("Median and 90th percentile hours to close, by agency", r => r.agency));
+  table(document.getElementById("tb-agency"), [
+    { t: "Agency", f: r => r.agency + " · " + r.agency_name }, { t: "Requests", n: 1, f: r => nf0.format(r.requests) }, { t: "Median", n: 1, f: r => hrs(r.median_hours) },
+    { t: "90th pct", n: 1, f: r => hrs(r.p90_hours) }, { t: "Still open", n: 1, f: r => pct2(r.pct_open) }], ag);
+  const sl = D.slowest;
+  document.getElementById("h-slow").textContent = nice(sl[0].complaint_type) + " is the slowest type, with a median of " + hrs(sl[0].median_hours) + " to close";
+  barsH(document.getElementById("c-slow"), sl, resOpt("Median and 90th percentile hours to close, slowest complaint types", r => nice(r.complaint_type)));
+  table(document.getElementById("tb-slow"), [
+    { t: "Complaint type", f: r => r.complaint_type }, { t: "Requests", n: 1, f: r => nf0.format(r.requests) }, { t: "Median", n: 1, f: r => hrs(r.median_hours) },
+    { t: "90th pct", n: 1, f: r => hrs(r.p90_hours) }, { t: "Still open", n: 1, f: r => pct2(r.pct_open) }], sl);
+  table(document.getElementById("tb-toprow"), [
+    { t: "#", n: 1, f: r => r.rank }, { t: "Complaint type", f: r => r.complaint_type }, { t: "Requests", n: 1, f: r => nf0.format(r.requests) },
+    { t: "Median", n: 1, f: r => hrs(r.median_hours) }, { t: "90th pct", n: 1, f: r => hrs(r.p90_hours) }, { t: "Still open", n: 1, f: r => pct2(r.pct_open) }], tc);
+
+  // place
+  const bo = D.borough, b0 = bo[0], cc = D.concentration;
+  document.getElementById("sub-place").textContent = "Requests carry a borough, a ZIP code and, for most, a point on the map.";
+  document.getElementById("h-borough").textContent = titleCase(b0.borough) + " has the most requests, " + nf1.format(b0.pct) + " % of the city";
+  table(document.getElementById("tb-borough"), [
+    { t: "Borough", f: r => titleCase(r.borough) }, { t: "Requests", n: 1, f: r => nf0.format(r.requests) }, { t: "%", n: 1, f: r => nf1.format(r.pct) + " %" },
+    { t: "Median to close", n: 1, f: r => hrs(r.median_hours) }, { t: "Top complaint", f: r => nice(r.top_complaint) }], bo);
+  document.getElementById("d-conc").textContent = "Share of the requests with a valid ZIP code that come from the busiest of " + nf0.format(cc.zips) + " ZIP codes.";
+  const sc = document.getElementById("s-conc"); sc.textContent = "";
+  [[cc.pct_top1, "top 1 % of ZIP codes"], [cc.pct_top10, "top 10 %"], [cc.pct_top20, "top 20 %"]].forEach(([a, b]) => {
+    const d = h("div"); d.appendChild(h("b", null, pct(a))); d.appendChild(h("span", null, "of requests come from the " + b)); sc.appendChild(d); });
+  const z = D.zip;
+  document.getElementById("h-zip").textContent = z[0].zip + " (" + titleCase(z[0].borough) + ") is the busiest ZIP code, with " + nf0.format(z[0].requests) + " requests";
+  barsH(document.getElementById("c-zip"), z, {
+    label: "Top 12 ZIP codes by requests", barH: 14, bandPad: 8, labelW: 150, labelOf: r => r.zip + " · " + titleCase(r.borough),
+    series: [{ key: "requests", name: "requests", color: S1, fmt: nf0.format }],
+    tipRows: r => [{ color: S1, value: nf0.format(r.requests), name: "requests" }, { value: nf2(r.pct) + " %", name: "of requests with a valid ZIP" }, { value: hrs(r.median_hours), name: "median time to close" }]
+  });
+  table(document.getElementById("tb-zip"), [
+    { t: "#", n: 1, f: r => r.rank }, { t: "ZIP", f: r => r.zip }, { t: "Borough", f: r => titleCase(r.borough) }, { t: "Requests", n: 1, f: r => nf0.format(r.requests) },
+    { t: "Median to close", n: 1, f: r => hrs(r.median_hours) }], z);
+
+  // density map
+  const mi = gridMap(document.getElementById("c-map"), D.map);
+  document.getElementById("h-map").textContent = "The map draws itself: requests follow the street grid, and parks and water stay blank";
+  document.getElementById("d-map").textContent = "Each square is about 440 × 420 m. Color is the number of requests in it, on a log scale. There is no base map: the shape of the city comes from the requests.";
+  legend(document.getElementById("lg-map"), [{ type: "rect", color: mi.steps[0], name: "25 requests" }, { type: "rect", color: mi.steps[3], name: "in between" }, { type: "rect", color: mi.steps[5], name: nf0.format(mi.max) + " in the busiest cell" }]);
+  document.getElementById("n-map").textContent = nf0.format(mi.shown) + " cells shown (those with at least 25 requests), covering " + nf0.format(mi.requests) + " requests";
+
+  // channels
+  const chs = ["ONLINE", "PHONE", "MOBILE", "UNKNOWN"], chNames = { ONLINE: "Online", PHONE: "Phone", MOBILE: "Mobile app", UNKNOWN: "Unknown" };
+  const chRows = mo.map(m => { const r = { month: m.month }; chs.forEach(c => { const x = D.channel_month.find(e => e.month === m.month && e.channel === c); r[c] = x ? x.pct : 0; }); return r; });
+  const cf = chRows[0], cl = chRows[chRows.length - 1];
+  document.getElementById("h-channel").textContent = "Phone went from " + Math.round(cf.PHONE) + " % to " + Math.round(cl.PHONE) + " % of requests over the year; online from " + Math.round(cf.ONLINE) + " % to " + Math.round(cl.ONLINE) + " %";
+  legend(document.getElementById("lg-channel"), chs.map((c, i) => ({ type: "ln", color: [S1, S2, S3, S4][i], name: chNames[c] })));
+  lineChart(document.getElementById("c-channel"), chRows, chs.map((c, i) => ({ key: c, name: chNames[c].toLowerCase(), short: chNames[c], color: [S1, S2, S3, S4][i] })),
+    { label: "Share of requests by channel and month", fmtY: v => nf0.format(v) + " %", fmtV: pct, xLabel: d => monthShort(d.month), xTitle: d => monthTxt(d.month), area: false });
+  table(document.getElementById("tb-channel"), [{ t: "Month", f: r => monthTxt(r.month) }, ...chs.map(c => ({ t: chNames[c], n: 1, f: r => pct(r[c]) }))], chRows);
+
+  // data quality
+  const q = D.quality, qTop = q.reduce((a, b) => b.requests > a.requests ? b : a);
+  document.getElementById("h-quality").textContent = "The most common flaw: " + qTop.issue.toLowerCase() + " (" + nf1.format(qTop.pct) + " % of requests)";
+  table(document.getElementById("tb-quality"), [{ t: "Issue", f: r => r.issue }, { t: "Requests", n: 1, f: r => nf0.format(r.requests) }, { t: "%", n: 1, f: r => pct2(r.pct) }], q);
+}
+const nf2 = v => new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v);
+
+let DATA = null, rt;
+fetch("data/dashboard.json")
+  .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+  .then(d => { DATA = d; render(d); })
+  .catch(() => { document.getElementById("main").replaceChildren(h("p", "wrap err",
+    "The data could not be loaded. If you opened the file directly, serve it with a local server: python3 -m http.server --directory docs")); });
+let lastW = innerWidth;
+addEventListener("resize", () => {
+  if (innerWidth === lastW) return;
+  lastW = innerWidth; clearTimeout(rt); rt = setTimeout(() => DATA && render(DATA), 150);
+});
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => DATA && render(DATA));
+</script>
+</body>
+</html>

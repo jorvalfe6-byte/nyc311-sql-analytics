@@ -1,0 +1,74 @@
+# Rebuilds the database from scratch and checks that the load, the
+# data-quality checks, every analysis query and the dashboard export work.
+#
+# CI uses a FIXED SAMPLE, not the full year: the first 2,000 requests (by
+# unique_key) of each month, 24,000 rows. The full year is 3.4 million rows
+# and about 20 minutes of API downloads, and the source is a live dataset that
+# is updated daily, so the exported JSON cannot be compared byte for byte with
+# the published one. The expected values in the checks switch to the sample
+# size when SAMPLE=1.
+name: Verify load
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  load:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: nyc311
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: localhost
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: nyc311
+      SAMPLE: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download the sample (2,000 requests per month)
+        run: ./scripts/download_data.sh
+
+      - name: Load and validate (fails if any check says REVIEW)
+        run: ./scripts/load.sh
+
+      - name: Run the analysis queries
+        run: |
+          for f in sql/analysis/*.sql; do
+            case "$f" in */00_*) continue;; esac
+            echo "→ $f"
+            psql -X -q -v ON_ERROR_STOP=1 -f "$f" > /dev/null
+          done
+
+      - name: Export the dashboard JSON and check its shape
+        run: |
+          ./scripts/export_dashboard.sh
+          python3 - <<'PY'
+          import json
+          d = json.load(open("docs/data/dashboard.json"))
+          keys = ["generated", "kpis", "monthly", "heat", "top_complaints", "slowest", "season_heat",
+                  "season_swing", "agency", "borough", "zip", "concentration", "map",
+                  "channel_month", "channel", "quality"]
+          # with 24,000 rows no complaint type reaches the 2,000 / 10,000 request
+          # thresholds of these two views, so they may be empty in the sample
+          optional = {"slowest", "season_swing", "map"}
+          missing = [k for k in keys if k not in optional and not d.get(k)]
+          assert not missing, f"empty or missing sections: {missing}"
+          print("dashboard.json OK:", len(keys), "sections")
+          PY

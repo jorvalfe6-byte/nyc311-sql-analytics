@@ -1,0 +1,172 @@
+/// 311 requests created in 2024, aggregated by month x agency x complaint type x borough x channel.
+table Requests
+	lineageTag: f257b0d0-0507-fb88-3e51-939119073dff
+
+	measure 'Total requests' = SUM(Requests[requests])
+		formatString: #,0
+		lineageTag: 79f572de-f079-4f95-d083-e441f128a1fe
+
+	/// Share of the requests in the current selection.
+	measure '% of requests' = DIVIDE([Total requests], CALCULATE([Total requests], ALLSELECTED()))
+		formatString: 0.0%
+		lineageTag: 1a6d642f-1555-581e-974f-d2cdd8c478fa
+
+	/// Status other than Closed when the data was downloaded.
+	measure '% still open' = DIVIDE(SUM(Requests[open_requests]), [Total requests])
+		formatString: 0.0%
+		lineageTag: 56a54007-29ce-ee77-8b00-00bec099f3ef
+
+	/// Over requests with a valid resolution time.
+	measure '% resolved within 24 h' = DIVIDE(SUM(Requests[resolved_24h]), SUM(Requests[resolved]))
+		formatString: 0.0%
+		lineageTag: f5a147d4-58e6-2ba0-928e-582ef2d04569
+
+	measure '% resolved within 7 days' = DIVIDE(SUM(Requests[resolved_7d]), SUM(Requests[resolved]))
+		formatString: 0.0%
+		lineageTag: 7933b0c9-6675-9757-af4d-f55a21ee9366
+
+	/// Mean, pulled up by a long tail. The README quotes medians, computed in SQL.
+	measure 'Mean resolution (days)' = DIVIDE(SUM(Requests[resolution_hours_sum]), SUM(Requests[resolved])) / 24
+		formatString: 0.0
+		lineageTag: 109e9c87-c07c-815b-ac0f-4a74ec1608c8
+
+	measure '% possible duplicates' = DIVIDE(SUM(Requests[possible_duplicates]), [Total requests])
+		formatString: 0.0%
+		lineageTag: 1bc876c9-00bc-45d2-7a5c-34a553bab433
+
+	column month_date
+		dataType: dateTime
+		isHidden
+		formatString: yyyy-mm-dd
+		lineageTag: da7e4cd2-4cac-3d05-d470-440fb2637b32
+		summarizeBy: none
+		sourceColumn: month_date
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column agency_key
+		dataType: int64
+		isHidden
+		formatString: 0
+		lineageTag: 3ea4e54e-f677-ce6f-aa6d-ee3065d97fce
+		summarizeBy: none
+		sourceColumn: agency_key
+
+		annotation SummarizationSetBy = Automatic
+
+	column complaint_type_key
+		dataType: int64
+		isHidden
+		formatString: 0
+		lineageTag: c25a386e-10bc-a860-824c-7bab6dad20f4
+		summarizeBy: none
+		sourceColumn: complaint_type_key
+
+		annotation SummarizationSetBy = Automatic
+
+	column borough
+		dataType: string
+		isHidden
+		lineageTag: f851566f-e9c4-d883-f357-8ee31c8b9731
+		summarizeBy: none
+		sourceColumn: borough
+
+		annotation SummarizationSetBy = Automatic
+
+	column channel_key
+		dataType: int64
+		isHidden
+		formatString: 0
+		lineageTag: ba7f8aa6-5ea3-9022-9357-1ebce2ce60e1
+		summarizeBy: none
+		sourceColumn: channel_key
+
+		annotation SummarizationSetBy = Automatic
+
+	column requests
+		dataType: int64
+		isHidden
+		formatString: 0
+		lineageTag: 6f1e2473-426b-30ed-0808-e251b0f15076
+		summarizeBy: none
+		sourceColumn: requests
+
+		annotation SummarizationSetBy = Automatic
+
+	column open_requests
+		dataType: int64
+		isHidden
+		formatString: 0
+		lineageTag: 96bf09f5-f46c-bc82-d8fe-223e8ad6cfce
+		summarizeBy: none
+		sourceColumn: open_requests
+
+		annotation SummarizationSetBy = Automatic
+
+	column resolved
+		dataType: int64
+		isHidden
+		formatString: 0
+		lineageTag: 0c17e34a-dd5a-73d0-f3fe-3efa7aa6e0ce
+		summarizeBy: none
+		sourceColumn: resolved
+
+		annotation SummarizationSetBy = Automatic
+
+	column resolution_hours_sum
+		dataType: double
+		isHidden
+		formatString: #,0.0
+		lineageTag: 0f349c32-3d15-d329-88ec-9d69e33a6af4
+		summarizeBy: none
+		sourceColumn: resolution_hours_sum
+
+		annotation SummarizationSetBy = Automatic
+
+	column resolved_24h
+		dataType: int64
+		isHidden
+		formatString: 0
+		lineageTag: 9285a96e-a782-dec7-1a26-c8bd7456cbc5
+		summarizeBy: none
+		sourceColumn: resolved_24h
+
+		annotation SummarizationSetBy = Automatic
+
+	column resolved_7d
+		dataType: int64
+		isHidden
+		formatString: 0
+		lineageTag: 691a2b77-26ff-5efb-3949-4fa49d699945
+		summarizeBy: none
+		sourceColumn: resolved_7d
+
+		annotation SummarizationSetBy = Automatic
+
+	column possible_duplicates
+		dataType: int64
+		isHidden
+		formatString: 0
+		lineageTag: 3829eb29-c00a-c74b-42fd-224ebd0f0ff9
+		summarizeBy: none
+		sourceColumn: possible_duplicates
+
+		annotation SummarizationSetBy = Automatic
+
+	partition Requests = m
+		mode: import
+		source =
+				let
+				    Archivo = "fact_monthly.csv",
+				    Binario = if Text.StartsWith(DataPath, "http")
+				        then Web.Contents(DataPath, [RelativePath = Archivo])
+				        else File.Contents(DataPath & Archivo),
+				    Fuente = Csv.Document(Binario, [Delimiter = ",", Encoding = 65001, QuoteStyle = QuoteStyle.Csv]),
+				    Encabezados = Table.PromoteHeaders(Fuente, [PromoteAllScalars = true]),
+				    Tipos = Table.TransformColumnTypes(Encabezados, {{"month_date", type date}, {"agency_key", Int64.Type}, {"complaint_type_key", Int64.Type}, {"borough", type text}, {"channel_key", Int64.Type}, {"requests", Int64.Type}, {"open_requests", Int64.Type}, {"resolved", Int64.Type}, {"resolution_hours_sum", type number}, {"resolved_24h", Int64.Type}, {"resolved_7d", Int64.Type}, {"possible_duplicates", Int64.Type}}, "en-US")
+				in
+				    Tipos
+
+	annotation PBI_ResultType = Table

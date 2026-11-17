@@ -1,0 +1,67 @@
+/// Requests by creation date x hour x borough.
+table Hourly
+	lineageTag: abd602df-e215-c11f-b6dd-1edcd9ac20fe
+
+	measure 'Requests by hour' = SUM(Hourly[requests])
+		formatString: #,0
+		lineageTag: 090c4216-8553-ea85-431d-77055dd18f4b
+
+	measure 'Avg requests per day' = DIVIDE([Requests by hour], DISTINCTCOUNT(Hourly[created_date]))
+		formatString: #,0
+		lineageTag: 667dc86d-fd16-084f-71c6-7b825fd71627
+
+	column created_date
+		dataType: dateTime
+		isHidden
+		formatString: yyyy-mm-dd
+		lineageTag: 6b31aeef-62cc-cff7-5d02-da562d512805
+		summarizeBy: none
+		sourceColumn: created_date
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column Hour
+		dataType: int64
+		formatString: 0
+		lineageTag: 38c02fec-254e-ea4d-98cc-9fe42e1e4fbd
+		summarizeBy: none
+		sourceColumn: created_hour
+
+		annotation SummarizationSetBy = Automatic
+
+	column borough
+		dataType: string
+		isHidden
+		lineageTag: caf2a8a5-95ec-ba68-087b-242269bcb068
+		summarizeBy: none
+		sourceColumn: borough
+
+		annotation SummarizationSetBy = Automatic
+
+	column requests
+		dataType: int64
+		isHidden
+		formatString: 0
+		lineageTag: 13b7a572-1eb6-2d0e-807d-82368c82efd3
+		summarizeBy: none
+		sourceColumn: requests
+
+		annotation SummarizationSetBy = Automatic
+
+	partition Hourly = m
+		mode: import
+		source =
+				let
+				    Archivo = "fact_hourly.csv",
+				    Binario = if Text.StartsWith(DataPath, "http")
+				        then Web.Contents(DataPath, [RelativePath = Archivo])
+				        else File.Contents(DataPath & Archivo),
+				    Fuente = Csv.Document(Binario, [Delimiter = ",", Encoding = 65001, QuoteStyle = QuoteStyle.Csv]),
+				    Encabezados = Table.PromoteHeaders(Fuente, [PromoteAllScalars = true]),
+				    Tipos = Table.TransformColumnTypes(Encabezados, {{"created_date", type date}, {"created_hour", Int64.Type}, {"borough", type text}, {"requests", Int64.Type}}, "en-US")
+				in
+				    Tipos
+
+	annotation PBI_ResultType = Table

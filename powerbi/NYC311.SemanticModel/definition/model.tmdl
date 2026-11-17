@@ -1,0 +1,24 @@
+model Model
+	culture: en-US
+	defaultPowerBIDataSourceVersion: powerBI_V3
+	discourageImplicitMeasures
+	sourceQueryCulture: en-US
+	dataAccessOptions
+		legacyRedirects
+		returnErrorValuesAsNull
+
+annotation __PBI_TimeIntelligenceEnabled = 0
+
+annotation PBI_QueryOrder = ["DataPath", "Requests", "Hourly", "ZIP activity", "Map grid", "Calendar", "Agency", "Complaint type", "Channel", "Borough", "Location"]
+
+ref table Requests
+ref table Hourly
+ref table 'ZIP activity'
+ref table 'Map grid'
+ref table Calendar
+ref table Agency
+ref table 'Complaint type'
+ref table Channel
+ref table Borough
+ref table Location
+

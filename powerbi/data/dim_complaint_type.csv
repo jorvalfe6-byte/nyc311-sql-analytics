@@ -1,0 +1,200 @@
+complaint_type_key,complaint_type
+1,AHV Inspection Unit
+2,APPLIANCE
+3,Abandoned Bike
+4,Abandoned Vehicle
+5,Adopt-A-Basket
+6,Air Quality
+7,Animal Facility - No Permit
+8,Animal in a Park
+9,Animal-Abuse
+10,Asbestos
+11,BEST/Site Safety
+12,Beach/Pool/Sauna Complaint
+13,Bench
+14,Bike Rack
+15,Bike Rack Condition
+16,Bike/Roller/Skate Chronic
+17,Blocked Driveway
+18,Boilers
+19,Borough Office
+20,Bridge Condition
+21,Broken Parking Meter
+22,Building Condition
+23,Building Drinking Water Tank
+24,Building Marshal's Office
+25,Building Marshals office
+26,Building/Use
+27,Bus Stop Shelter Complaint
+28,Bus Stop Shelter Placement
+29,Calorie Labeling
+30,Commercial Disposal Complaint
+31,Construction Lead Dust
+32,Consumer Complaint
+33,Cooling Tower
+34,Cranes and Derricks
+35,Curb Condition
+36,DEP Highway Condition
+37,DEP Sidewalk Condition
+38,DEP Street Condition
+39,DOOR/WINDOW
+40,DSNY Internal
+41,Damaged Tree
+42,Day Care
+43,Dead Animal
+44,Dead/Dying Tree
+45,Dept of Investigations
+46,Derelict Vehicles
+47,Dirty Condition
+48,Disorderly Youth
+49,Dispatched Taxi Complaint
+50,Drinking
+51,Drinking Water
+52,Drug Activity
+53,Dumpster Complaint
+54,E-Scooter
+55,ELECTRIC
+56,ELEVATOR
+57,Electrical
+58,Elevator
+59,Emergency Response Team (ERT)
+60,Encampment
+61,Executive Inspections
+62,FHV Licensee Complaint
+63,FLOORING/STAIRS
+64,Facade Insp Safety Pgm
+65,Ferry Complaint
+66,Ferry Inquiry
+67,Food Establishment
+68,Food Poisoning
+69,For Hire Vehicle Complaint
+70,For Hire Vehicle Report
+71,Found Property
+72,GENERAL
+73,General Construction/Plumbing
+74,Graffiti
+75,Green Taxi Complaint
+76,Green Taxi Report
+77,HEAT/HOT WATER
+78,Harboring Bees/Wasps
+79,Hazardous Materials
+80,Highway Condition
+81,Highway Sign - Damaged
+82,Highway Sign - Dangling
+83,Highway Sign - Missing
+84,Homeless Person Assistance
+85,Illegal Animal Kept as Pet
+86,Illegal Animal Sold
+87,Illegal Dumping
+88,Illegal Fireworks
+89,Illegal Parking
+90,Illegal Posting
+91,Illegal Tree Damage
+92,Incorrect Data
+93,Indoor Air Quality
+94,Indoor Sewage
+95,Industrial Waste
+96,Institution Disposal Complaint
+97,Investigations and Discipline (IAD)
+98,Lead
+99,Leaning Bar
+100,Lifeguard
+101,LinkNYC
+102,Litter Basket Complaint
+103,Litter Basket Request
+104,Lost Property
+105,Lot Condition
+106,Maintenance or Facility
+107,Missed Collection
+108,Mobile Food Vendor
+109,Mold
+110,Mosquitoes
+111,Municipal Parking Facility
+112,New Tree Request
+113,Noise
+114,Noise - Commercial
+115,Noise - Helicopter
+116,Noise - House of Worship
+117,Noise - Park
+118,Noise - Residential
+119,Noise - Street/Sidewalk
+120,Noise - Vehicle
+121,Non-Emergency Police Matter
+122,Non-Residential Heat
+123,OUTSIDE BUILDING
+124,Obstruction
+125,Oil or Gas Spill
+126,Outdoor Dining
+127,Overgrown Tree/Branches
+128,PAINT/PLASTER
+129,PLUMBING
+130,Panhandling
+131,Peeling Paint
+132,Pet Shop
+133,Plant
+134,Plumbing
+135,Poison Ivy
+136,Posting Advertisement
+137,Public Payphone Complaint
+138,Public Toilet
+139,Radioactive Material
+140,Real Time Enforcement
+141,Recycling Basket Complaint
+142,Residential Disposal Complaint
+143,Retailer Complaint
+144,Rodent
+145,Root/Sewer/Sidewalk Condition
+146,SAFETY
+147,SNW
+148,Sanitation Worker or Vehicle Complaint
+149,Scaffold Safety
+150,School Maintenance
+151,Seasonal Collection
+152,Sewer
+153,Sewer Maintenance
+154,Sidewalk Condition
+155,Smoking
+156,Smoking or Vaping
+157,Snow or Ice
+158,Special Natural Area District (SNAD)
+159,Special Operations
+160,Special Projects Inspection Team (SPIT)
+161,Squeegee
+162,Stalled Sites
+163,Standing Water
+164,Street Condition
+165,Street Light Condition
+166,Street Sign - Damaged
+167,Street Sign - Dangling
+168,Street Sign - Missing
+169,Street Sweeping Complaint
+170,Sustainability Enforcement
+171,Tanning
+172,Tattooing
+173,Taxi Complaint
+174,Taxi Compliment
+175,Taxi Licensee Complaint
+176,Taxi Report
+177,Tobacco or Non-Tobacco Sale
+178,Traffic
+179,Traffic Signal Condition
+180,Transfer Station Complaint
+181,Tunnel Condition
+182,UNSANITARY CONDITION
+183,Unleashed Dog
+184,Unsanitary Animal Facility
+185,Unsanitary Animal Pvt Property
+186,Unsanitary Pigeon Condition
+187,Uprooted Stump
+188,Urinating in Public
+189,Vendor Enforcement
+190,Violation of Park Rules
+191,WATER LEAK
+192,Water Conservation
+193,Water Maintenance
+194,Water Quality
+195,Water System
+196,Wayfinding
+197,Window Guard
+198,Wood Pile Remaining
+199,X-Ray Machine/Equipment

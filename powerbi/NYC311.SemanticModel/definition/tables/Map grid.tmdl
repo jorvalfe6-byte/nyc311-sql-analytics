@@ -1,0 +1,78 @@
+/// Requests with coordinates by ~440 m cell (whole year).
+table 'Map grid'
+	lineageTag: 57f9ca99-c27e-3230-e8d8-66a43ece3660
+
+	measure 'Requests in cell' = SUM('Map grid'[requests])
+		formatString: #,0
+		lineageTag: fa397536-ea98-6400-c078-d9c7b07169bc
+
+	measure 'Cell latitude' = AVERAGE('Map grid'[cell_lat])
+		formatString: 0.000
+		lineageTag: 1adcdc95-39cf-5deb-b118-e7897c1afa7a
+
+	measure 'Cell longitude' = AVERAGE('Map grid'[cell_lng])
+		formatString: 0.000
+		lineageTag: aa7681ed-3932-d45f-a74f-acf130a3697e
+
+	column 'Map cell'
+		dataType: string
+		lineageTag: c84a0d4c-dcae-7b61-cf1b-138a1e6d69e3
+		summarizeBy: none
+		sourceColumn: cell
+
+		annotation SummarizationSetBy = Automatic
+
+	column cell_lat
+		dataType: double
+		isHidden
+		formatString: 0.0000
+		lineageTag: f42b3078-87ba-a901-520d-bfff4fbf1f09
+		summarizeBy: none
+		sourceColumn: cell_lat
+
+		annotation SummarizationSetBy = Automatic
+
+	column cell_lng
+		dataType: double
+		isHidden
+		formatString: 0.0000
+		lineageTag: a7b6a671-61ab-fbff-36f6-7e577b583fb3
+		summarizeBy: none
+		sourceColumn: cell_lng
+
+		annotation SummarizationSetBy = Automatic
+
+	column borough
+		dataType: string
+		isHidden
+		lineageTag: 9a4acb25-43f7-2f1a-c523-4ed06cdd3944
+		summarizeBy: none
+		sourceColumn: borough
+
+		annotation SummarizationSetBy = Automatic
+
+	column requests
+		dataType: int64
+		isHidden
+		formatString: 0
+		lineageTag: 91c333b5-de2a-50f4-ba58-c6fd3c072e84
+		summarizeBy: none
+		sourceColumn: requests
+
+		annotation SummarizationSetBy = Automatic
+
+	partition 'Map grid' = m
+		mode: import
+		source =
+				let
+				    Archivo = "fact_grid.csv",
+				    Binario = if Text.StartsWith(DataPath, "http")
+				        then Web.Contents(DataPath, [RelativePath = Archivo])
+				        else File.Contents(DataPath & Archivo),
+				    Fuente = Csv.Document(Binario, [Delimiter = ",", Encoding = 65001, QuoteStyle = QuoteStyle.Csv]),
+				    Encabezados = Table.PromoteHeaders(Fuente, [PromoteAllScalars = true]),
+				    Tipos = Table.TransformColumnTypes(Encabezados, {{"cell", type text}, {"cell_lat", type number}, {"cell_lng", type number}, {"borough", type text}, {"requests", Int64.Type}}, "en-US")
+				in
+				    Tipos
+
+	annotation PBI_ResultType = Table

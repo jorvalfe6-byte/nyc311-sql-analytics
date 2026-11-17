@@ -1,0 +1,127 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.0.0/schema.json",
+  "name": "e1826c33dd8faa1754b5",
+  "position": {
+    "x": 740,
+    "y": 92,
+    "z": 1004,
+    "height": 604,
+    "width": 516,
+    "tabOrder": 1004
+  },
+  "visual": {
+    "visualType": "tableEx",
+    "drillFilterOtherVisuals": true,
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Location"
+                    }
+                  },
+                  "Property": "ZIP code"
+                }
+              },
+              "queryRef": "Location.ZIP code",
+              "nativeQueryRef": "ZIP code"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Borough"
+                    }
+                  },
+                  "Property": "Borough"
+                }
+              },
+              "queryRef": "Borough.Borough",
+              "nativeQueryRef": "Borough"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "ZIP activity"
+                    }
+                  },
+                  "Property": "Requests by ZIP"
+                }
+              },
+              "queryRef": "ZIP activity.Requests by ZIP",
+              "nativeQueryRef": "Requests by ZIP"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "ZIP activity"
+                    }
+                  },
+                  "Property": "% of city requests"
+                }
+              },
+              "queryRef": "ZIP activity.% of city requests",
+              "nativeQueryRef": "% of city requests"
+            }
+          ]
+        }
+      },
+      "sortDefinition": {
+        "sort": [
+          {
+            "field": {
+              "Measure": {
+                "Expression": {
+                  "SourceRef": {
+                    "Entity": "ZIP activity"
+                  }
+                },
+                "Property": "Requests by ZIP"
+              }
+            },
+            "direction": "Descending"
+          }
+        ],
+        "isDefaultSort": true
+      }
+    },
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Busiest ZIP codes'"
+                }
+              }
+            },
+            "fontSize": {
+              "expr": {
+                "Literal": {
+                  "Value": "12D"
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

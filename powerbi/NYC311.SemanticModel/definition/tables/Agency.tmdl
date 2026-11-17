@@ -1,0 +1,44 @@
+table Agency
+	lineageTag: 09db4b3c-b984-de0e-6033-1e389e1d1757
+
+	column agency_key
+		dataType: int64
+		isHidden
+		formatString: 0
+		lineageTag: afb11702-2a6d-ea5c-6187-cf40c3f28965
+		summarizeBy: none
+		sourceColumn: agency_key
+
+		annotation SummarizationSetBy = Automatic
+
+	column Agency
+		dataType: string
+		lineageTag: 2c60e5a4-ea04-71bd-21ae-bac9b7fd34cc
+		summarizeBy: none
+		sourceColumn: agency
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Agency name'
+		dataType: string
+		lineageTag: 3422e724-51aa-ce94-749b-e63a0ae54f8b
+		summarizeBy: none
+		sourceColumn: agency_name
+
+		annotation SummarizationSetBy = Automatic
+
+	partition Agency = m
+		mode: import
+		source =
+				let
+				    Archivo = "dim_agency.csv",
+				    Binario = if Text.StartsWith(DataPath, "http")
+				        then Web.Contents(DataPath, [RelativePath = Archivo])
+				        else File.Contents(DataPath & Archivo),
+				    Fuente = Csv.Document(Binario, [Delimiter = ",", Encoding = 65001, QuoteStyle = QuoteStyle.Csv]),
+				    Encabezados = Table.PromoteHeaders(Fuente, [PromoteAllScalars = true]),
+				    Tipos = Table.TransformColumnTypes(Encabezados, {{"agency_key", Int64.Type}, {"agency", type text}, {"agency_name", type text}}, "en-US")
+				in
+				    Tipos
+
+	annotation PBI_ResultType = Table

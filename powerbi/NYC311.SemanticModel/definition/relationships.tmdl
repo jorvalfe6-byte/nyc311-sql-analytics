@@ -1,0 +1,44 @@
+relationship d970e3da-50ac-36a1-8bd5-5911d4b873f6
+	fromColumn: Requests.month_date
+	toColumn: Calendar.Date
+
+relationship 090999ab-3120-d1ab-97a8-8d4d6af213fd
+	fromColumn: Requests.agency_key
+	toColumn: Agency.agency_key
+
+relationship 8b2ea3f4-f77b-7e3e-f0d9-bad038e4328c
+	fromColumn: Requests.complaint_type_key
+	toColumn: 'Complaint type'.complaint_type_key
+
+relationship 54d7c7f4-3970-6e66-39fb-da02a35d4eef
+	fromColumn: Requests.borough
+	toColumn: Borough.Borough
+
+relationship e27d43fa-1819-533b-a6cf-29820aab1488
+	fromColumn: Requests.channel_key
+	toColumn: Channel.channel_key
+
+relationship ca28b8b2-b7d3-852f-88b1-c4bde74c61ff
+	fromColumn: Hourly.created_date
+	toColumn: Calendar.Date
+
+relationship b586f6ea-0edf-4fa9-e3c2-7981de6ffb61
+	fromColumn: Hourly.borough
+	toColumn: Borough.Borough
+
+relationship debcbe56-1147-9b99-abf5-5e9975ef2fd0
+	fromColumn: 'ZIP activity'.month_date
+	toColumn: Calendar.Date
+
+relationship aa8b4005-0e75-bd16-e4ac-5ccc2cabcb25
+	fromColumn: 'ZIP activity'.location_key
+	toColumn: Location.location_key
+
+relationship 1558a0ed-fca3-ba95-d242-4d5b371c354e
+	fromColumn: 'ZIP activity'.borough
+	toColumn: Borough.Borough
+
+relationship 8dcb73f1-6af1-5669-fda1-5a2973e87602
+	fromColumn: 'Map grid'.borough
+	toColumn: Borough.Borough
+

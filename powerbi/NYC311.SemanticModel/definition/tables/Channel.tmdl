@@ -1,0 +1,36 @@
+table Channel
+	lineageTag: 0c7c7276-8326-9882-e87f-1769987ffc00
+
+	column channel_key
+		dataType: int64
+		isHidden
+		formatString: 0
+		lineageTag: d360e136-c44b-52a9-2d15-1985274fad68
+		summarizeBy: none
+		sourceColumn: channel_key
+
+		annotation SummarizationSetBy = Automatic
+
+	column Channel
+		dataType: string
+		lineageTag: 77b4bd13-c660-dc26-c019-d0820760ca9a
+		summarizeBy: none
+		sourceColumn: channel
+
+		annotation SummarizationSetBy = Automatic
+
+	partition Channel = m
+		mode: import
+		source =
+				let
+				    Archivo = "dim_channel.csv",
+				    Binario = if Text.StartsWith(DataPath, "http")
+				        then Web.Contents(DataPath, [RelativePath = Archivo])
+				        else File.Contents(DataPath & Archivo),
+				    Fuente = Csv.Document(Binario, [Delimiter = ",", Encoding = 65001, QuoteStyle = QuoteStyle.Csv]),
+				    Encabezados = Table.PromoteHeaders(Fuente, [PromoteAllScalars = true]),
+				    Tipos = Table.TransformColumnTypes(Encabezados, {{"channel_key", Int64.Type}, {"channel", type text}}, "en-US")
+				in
+				    Tipos
+
+	annotation PBI_ResultType = Table

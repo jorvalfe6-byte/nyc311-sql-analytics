@@ -1,0 +1,36 @@
+table 'Complaint type'
+	lineageTag: 92975d13-3c8b-8092-31d4-ff00e1c86de9
+
+	column complaint_type_key
+		dataType: int64
+		isHidden
+		formatString: 0
+		lineageTag: ab6313d7-7c67-3d62-8b97-373b1ad81078
+		summarizeBy: none
+		sourceColumn: complaint_type_key
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Complaint type'
+		dataType: string
+		lineageTag: 0295a0a8-f0a7-86b8-9de3-8845a0999975
+		summarizeBy: none
+		sourceColumn: complaint_type
+
+		annotation SummarizationSetBy = Automatic
+
+	partition 'Complaint type' = m
+		mode: import
+		source =
+				let
+				    Archivo = "dim_complaint_type.csv",
+				    Binario = if Text.StartsWith(DataPath, "http")
+				        then Web.Contents(DataPath, [RelativePath = Archivo])
+				        else File.Contents(DataPath & Archivo),
+				    Fuente = Csv.Document(Binario, [Delimiter = ",", Encoding = 65001, QuoteStyle = QuoteStyle.Csv]),
+				    Encabezados = Table.PromoteHeaders(Fuente, [PromoteAllScalars = true]),
+				    Tipos = Table.TransformColumnTypes(Encabezados, {{"complaint_type_key", Int64.Type}, {"complaint_type", type text}}, "en-US")
+				in
+				    Tipos
+
+	annotation PBI_ResultType = Table

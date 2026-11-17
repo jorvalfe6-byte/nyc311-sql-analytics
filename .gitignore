@@ -1,0 +1,7 @@
+# Raw CSV files are not versioned (size); scripts/download_data.sh fetches them
+/data/
+*.csv
+.env
+.DS_Store
+# The CSV files the Power BI report reads are versioned (small aggregates)
+!/powerbi/data/*.csv
